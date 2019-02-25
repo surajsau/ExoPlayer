@@ -74,16 +74,16 @@ public abstract class DownloadService extends Service {
   // Keep the requirements helper for each DownloadService as long as there are tasks (and the
   // process is running). This allows tasks to resume when there's no scheduler. It may also allow
   // tasks the resume more quickly than when relying on the scheduler alone.
-  private static final HashMap<Class<? extends DownloadService>, RequirementsHelper>
+  protected static final HashMap<Class<? extends DownloadService>, RequirementsHelper>
       requirementsHelpers = new HashMap<>();
   private static final Requirements DEFAULT_REQUIREMENTS =
       new Requirements(Requirements.NETWORK_TYPE_ANY, false, false);
 
-  private final @Nullable ForegroundNotificationUpdater foregroundNotificationUpdater;
+  protected final @Nullable ForegroundNotificationUpdater foregroundNotificationUpdater;
   private final @Nullable String channelId;
   private final @StringRes int channelName;
 
-  private DownloadManager downloadManager;
+  protected DownloadManager downloadManager;
   private DownloadManagerListener downloadManagerListener;
   private int lastStartId;
   private boolean startedInForeground;
@@ -363,7 +363,7 @@ public abstract class DownloadService extends Service {
     // Do nothing.
   }
 
-  private void maybeStartWatchingRequirements(Requirements requirements) {
+  protected void maybeStartWatchingRequirements(Requirements requirements) {
     if (downloadManager.getDownloadCount() == 0) {
       return;
     }
@@ -377,14 +377,14 @@ public abstract class DownloadService extends Service {
     }
   }
 
-  private void maybeStopWatchingRequirements() {
+  protected void maybeStopWatchingRequirements() {
     if (downloadManager.getDownloadCount() > 0) {
       return;
     }
     stopWatchingRequirements();
   }
 
-  private void stopWatchingRequirements() {
+  protected void stopWatchingRequirements() {
     RequirementsHelper requirementsHelper = requirementsHelpers.remove(getClass());
     if (requirementsHelper != null) {
       requirementsHelper.stop();
@@ -392,7 +392,7 @@ public abstract class DownloadService extends Service {
     }
   }
 
-  private void stop() {
+  protected void stop() {
     if (foregroundNotificationUpdater != null) {
       foregroundNotificationUpdater.stopPeriodicUpdates();
       // Make sure startForeground is called before stopping. Workaround for [Internal: b/69424260].
