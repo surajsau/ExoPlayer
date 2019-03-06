@@ -73,6 +73,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   private volatile int downloadedSegments;
   private volatile long downloadedBytes;
 
+  private final Object lock = new Object();
+
   /**
    * @param manifestUri The {@link Uri} of the manifest to be downloaded.
    * @param streamKeys Keys defining which streams in the manifest should be selected for download.
@@ -110,10 +112,11 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       Collections.sort(segments);
       byte[] buffer = new byte[BUFFER_SIZE_BYTES];
       CachingCounters cachingCounters = new CachingCounters();
-      for (int i = 0; i < segments.size(); i++) {
+      QueuedDownload<Segment> queuedDownload = new QueuedDownload<>(segments, segment -> {
+
         try {
           CacheUtil.cache(
-              segments.get(i).dataSpec,
+              segment.dataSpec,
               cache,
               dataSource,
               buffer,
@@ -124,9 +127,13 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
               true);
           downloadedSegments++;
         } finally {
-          downloadedBytes += cachingCounters.newlyCachedBytes;
+          synchronized (lock) {
+            downloadedBytes += cachingCounters.newlyCachedBytes;
+          }
         }
-      }
+      });
+
+      queuedDownload.initDownload();
     } finally {
       priorityTaskManager.remove(C.PRIORITY_DOWNLOAD);
     }
