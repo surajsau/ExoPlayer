@@ -64,7 +64,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   private final Uri manifestUri;
   private final PriorityTaskManager priorityTaskManager;
   private final Cache cache;
-  private final CacheDataSource dataSource;
+//  private final CacheDataSource dataSource;
+  private final ArrayList<CacheDataSource> dataSources;
   private final CacheDataSource offlineDataSource;
   private final ArrayList<StreamKey> streamKeys;
   private final AtomicBoolean isCanceled;
@@ -86,7 +87,13 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     this.manifestUri = manifestUri;
     this.streamKeys = new ArrayList<>(streamKeys);
     this.cache = constructorHelper.getCache();
-    this.dataSource = constructorHelper.buildCacheDataSource(false);
+
+    dataSources = new ArrayList<>();
+
+    for (int i = 0; i < QueuedDownload.SIZE; i++) {
+      dataSources.add(constructorHelper.buildCacheDataSource(false));
+    }
+
     this.offlineDataSource = constructorHelper.buildCacheDataSource(true);
     this.priorityTaskManager = constructorHelper.getPriorityTaskManager();
     totalSegments = C.LENGTH_UNSET;
@@ -112,28 +119,27 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       Collections.sort(segments);
       byte[] buffer = new byte[BUFFER_SIZE_BYTES];
       CachingCounters cachingCounters = new CachingCounters();
-      QueuedDownload<Segment> queuedDownload = new QueuedDownload<>(segments, segment -> {
+      QueuedDownload<Segment> queuedDownload = new QueuedDownload<>(segments, QueuedDownload.SIZE,
+          (segment, type) -> {
 
-        try {
-          CacheUtil.cache(
-              segment.dataSpec,
-              cache,
-              dataSource,
-              buffer,
-              priorityTaskManager,
-              C.PRIORITY_DOWNLOAD,
-              cachingCounters,
-              isCanceled,
-              true);
-          downloadedSegments++;
-        } finally {
-          synchronized (lock) {
-            downloadedBytes += cachingCounters.newlyCachedBytes;
-          }
-        }
-      });
+            try {
+              CacheUtil.cache(
+                  segment.dataSpec,
+                  cache,
+                  dataSources.get(type),
+                  buffer,
+                  priorityTaskManager,
+                  C.PRIORITY_DOWNLOAD,
+                  cachingCounters,
+                  isCanceled,
+                  true);
+              downloadedSegments++;
+            } finally {
+              downloadedBytes += cachingCounters.newlyCachedBytes;
+            }
+          });
 
-      queuedDownload.initDownload();
+      queuedDownload.download();
     } finally {
       priorityTaskManager.remove(C.PRIORITY_DOWNLOAD);
     }
@@ -209,11 +215,11 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   // Writes to downloadedSegments and downloadedBytes are safe. See the comment on download().
   @SuppressWarnings("NonAtomicVolatileUpdate")
   private List<Segment> initDownload() throws IOException, InterruptedException {
-    M manifest = getManifest(dataSource, manifestUri);
+    M manifest = getManifest(dataSources.get(0), manifestUri);
     if (!streamKeys.isEmpty()) {
       manifest = manifest.copy(streamKeys);
     }
-    List<Segment> segments = getSegments(dataSource, manifest, /* allowIncompleteList= */ false);
+    List<Segment> segments = getSegments(dataSources.get(0), manifest, /* allowIncompleteList= */ false);
     CachingCounters cachingCounters = new CachingCounters();
     totalSegments = segments.size();
     downloadedSegments = 0;
