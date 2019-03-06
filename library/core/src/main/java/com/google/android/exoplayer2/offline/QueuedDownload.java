@@ -8,12 +8,14 @@ import java.util.List;
 
 public class QueuedDownload<T> {
 
+    public static int SIZE = 3;
+
     interface Callback<T> {
         void download(T item) throws InterruptedException, IOException;
     }
 
     private final List<T> itemsToDownload;
-    private final int maxParallelSize;
+//    private final int maxParallelSize;
     private final Callback<T> callback;
     private final Object Q_LOCK = new Object();
 
@@ -22,21 +24,21 @@ public class QueuedDownload<T> {
     private IOException ioExceptionHolder = null;
 
 
-    public QueuedDownload(List<T> itemsToDownload, int maxParallelSize, Callback<T> callback) {
+    private QueuedDownload(List<T> itemsToDownload, int maxParallelSize, Callback<T> callback) {
         this.itemsToDownload = itemsToDownload;
-        this.maxParallelSize = maxParallelSize;
+//        this.maxParallelSize = maxParallelSize;
         this.callback = callback;
     }
 
-    public QueuedDownload(List<T> itemsToDownload, Callback<T> callback) {
-        this(itemsToDownload, 3, callback);
+    QueuedDownload(List<T> itemsToDownload, Callback<T> callback) {
+        this(itemsToDownload, 0, callback);
     }
 
-    public void initDownload() throws IOException, InterruptedException {
+    void initDownload() throws IOException, InterruptedException {
 
         while (itemsToDownload.size() > 0) {
 
-            while (currentParallelCount >= maxParallelSize) {
+            while (currentParallelCount >= SIZE) {
                 SystemClock.sleep(100);
             }
 
