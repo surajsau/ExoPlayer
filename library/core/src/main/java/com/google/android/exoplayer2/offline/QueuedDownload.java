@@ -95,6 +95,13 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
             } catch (InterruptedException e) {
                 interruptedExceptionHolder = e;
             }
+            finally {
+                synchronized (threadLock) {
+                    if (isAllQueueEmpty()) {
+                        threadLock.notify();
+                    }
+                }
+            }
         }).start();
 
     }
@@ -109,13 +116,7 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
             T item = queue.remove(0);
             Log.d("VideoDownload", String.format(Locale.getDefault(), "Q(%d) -S:%d : U:%s", type, queue.size(), item.dataSpec.uri.toString()));
             callback.download(item, type);
-
         }
 
-        synchronized (threadLock) {
-            if (isAllQueueEmpty()) {
-                threadLock.notify();
-            }
-        }
     }
 }
