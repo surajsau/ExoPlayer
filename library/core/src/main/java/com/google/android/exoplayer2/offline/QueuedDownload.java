@@ -1,10 +1,8 @@
 package com.google.android.exoplayer2.offline;
 
-import com.google.android.exoplayer2.util.Log;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class QueuedDownload<T extends SegmentDownloader.Segment> {
 
