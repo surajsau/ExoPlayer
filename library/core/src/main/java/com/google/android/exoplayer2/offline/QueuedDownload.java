@@ -114,7 +114,6 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
                 return;
             }
             T item = queue.remove(0);
-            Log.d("VideoDownload", String.format(Locale.getDefault(), "Q(%d) -S:%d : U:%s", type, queue.size(), item.dataSpec.uri.toString()));
             callback.download(item, type);
         }
 
