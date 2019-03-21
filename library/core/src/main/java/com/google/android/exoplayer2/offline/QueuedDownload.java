@@ -90,8 +90,10 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
                 execute(queue, type);
             } catch (IOException e) {
                 ioExceptionHolder = e;
+                queue.clear();
             } catch (InterruptedException e) {
                 interruptedExceptionHolder = e;
+                queue.clear();
             }
             finally {
                 synchronized (threadLock) {
