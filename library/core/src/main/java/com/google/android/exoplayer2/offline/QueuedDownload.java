@@ -18,6 +18,7 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
     private final Object threadLock = new Object();
 
     private ArrayList<ArrayList<T>> parallelQueueList = new ArrayList<>();
+    private ArrayList<Thread> parallelThreadList = new ArrayList<>();
     private int maxQueueSize;
 
     private volatile InterruptedException interruptedExceptionHolder = null;
@@ -51,8 +52,12 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
             targetQueue.add(itemsToDownload.get(i));
         }
 
+        parallelThreadList.clear();
+
         for (int i = 0; i < parallelQueueList.size(); i++) {
-            executeAsync(parallelQueueList.get(i), i);
+            Thread t = createThread(parallelQueueList.get(i), i);
+            parallelThreadList.add(t);
+            t.start();
         }
 
         synchronized (threadLock) {
@@ -62,13 +67,27 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
         }
 
         if (interruptedExceptionHolder != null) {
+            killThreads();
             throw interruptedExceptionHolder;
         }
 
         if (ioExceptionHolder != null) {
+            killThreads();
             throw ioExceptionHolder;
         }
 
+    }
+
+    private void killThreads() {
+
+        for (int i = 0; i < parallelThreadList.size(); i++) {
+            Thread thread = parallelThreadList.get(i);
+            if(thread.isAlive()) {
+                thread.interrupt();
+            }
+        }
+
+        parallelThreadList.clear();
     }
 
     private boolean isAllQueueEmpty() {
@@ -83,27 +102,36 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
         return true;
     }
 
-    private void executeAsync(ArrayList<T> queue, int type) {
+    private Thread createThread(ArrayList<T> queue, int type) {
 
-        new Thread(() -> {
+        return new Thread(() -> {
             try {
                 execute(queue, type);
+                notifyMainIfEmpty();
+
             } catch (IOException e) {
                 ioExceptionHolder = e;
-                queue.clear();
+                notifyMain();
             } catch (InterruptedException e) {
                 interruptedExceptionHolder = e;
-                queue.clear();
+                notifyMain();
             }
-            finally {
-                synchronized (threadLock) {
-                    if (isAllQueueEmpty()) {
-                        threadLock.notify();
-                    }
-                }
-            }
-        }).start();
+        });
+    }
 
+    private void notifyMainIfEmpty() {
+        synchronized (threadLock) {
+            if(isAllQueueEmpty()) {
+                threadLock.notify();
+            }
+        }
+    }
+
+    private void notifyMain() {
+
+        synchronized (threadLock) {
+                threadLock.notify();
+        }
     }
 
     private void execute(ArrayList<T> queue, int type) throws IOException, InterruptedException {
