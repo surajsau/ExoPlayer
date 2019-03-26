@@ -21,8 +21,7 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
     private ArrayList<Thread> parallelThreadList = new ArrayList<>();
     private int maxQueueSize;
 
-    private volatile InterruptedException interruptedExceptionHolder = null;
-    private volatile IOException ioExceptionHolder = null;
+    private volatile Throwable anyExceptionHolder = null;
 
 
     public QueuedDownload(List<T> itemsToDownload, int size, Callback<T> callback) {
@@ -32,7 +31,7 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
     }
 
 
-    void download() throws IOException, InterruptedException {
+    void download() throws Throwable {
 
         int size = itemsToDownload.size();
 
@@ -66,16 +65,10 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
             }
         }
 
-        if (interruptedExceptionHolder != null) {
+        if (anyExceptionHolder != null) {
             killThreads();
-            throw interruptedExceptionHolder;
+            throw anyExceptionHolder;
         }
-
-        if (ioExceptionHolder != null) {
-            killThreads();
-            throw ioExceptionHolder;
-        }
-
     }
 
     private void killThreads() {
@@ -109,11 +102,8 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
                 execute(queue, type);
                 notifyMainIfEmpty();
 
-            } catch (IOException e) {
-                ioExceptionHolder = e;
-                notifyMain();
-            } catch (InterruptedException e) {
-                interruptedExceptionHolder = e;
+            } catch (Throwable e) {
+                anyExceptionHolder = e;
                 notifyMain();
             }
         });
@@ -138,7 +128,7 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
 
         while (!queue.isEmpty()) {
 
-            if(ioExceptionHolder != null || interruptedExceptionHolder != null) {
+            if(anyExceptionHolder != null) {
                 return;
             }
             T item = queue.remove(0);
