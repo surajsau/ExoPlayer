@@ -21,7 +21,8 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
     private ArrayList<Thread> parallelThreadList = new ArrayList<>();
     private int maxQueueSize;
 
-    private volatile Throwable anyExceptionHolder = null;
+    private volatile InterruptedException interruptedExceptionHolder = null;
+    private volatile IOException ioExceptionHolder = null;
 
 
     public QueuedDownload(List<T> itemsToDownload, int size, Callback<T> callback) {
@@ -31,7 +32,7 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
     }
 
 
-    void download() throws Throwable {
+    void download() throws IOException, InterruptedException {
 
         int size = itemsToDownload.size();
 
@@ -65,10 +66,16 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
             }
         }
 
-        if (anyExceptionHolder != null) {
+        if (interruptedExceptionHolder != null) {
             killThreads();
-            throw anyExceptionHolder;
+            throw interruptedExceptionHolder;
         }
+
+        if (ioExceptionHolder != null) {
+            killThreads();
+            throw ioExceptionHolder;
+        }
+
     }
 
     private void killThreads() {
@@ -102,8 +109,14 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
                 execute(queue, type);
                 notifyMainIfEmpty();
 
+            } catch (IOException e) {
+                ioExceptionHolder = e;
+                notifyMain();
+            } catch (InterruptedException e) {
+                interruptedExceptionHolder = e;
+                notifyMain();
             } catch (Throwable e) {
-                anyExceptionHolder = e;
+                ioExceptionHolder = new IOException("Wrapped exception", e);
                 notifyMain();
             }
         });
@@ -128,7 +141,7 @@ public class QueuedDownload<T extends SegmentDownloader.Segment> {
 
         while (!queue.isEmpty()) {
 
-            if(anyExceptionHolder != null) {
+            if(ioExceptionHolder != null || interruptedExceptionHolder != null) {
                 return;
             }
             T item = queue.remove(0);
