@@ -363,7 +363,7 @@ public abstract class DownloadService extends Service {
     // Do nothing.
   }
 
-  private void maybeStartWatchingRequirements(Requirements requirements) {
+  protected void maybeStartWatchingRequirements(Requirements requirements) {
     if (downloadManager.getDownloadCount() == 0) {
       return;
     }
