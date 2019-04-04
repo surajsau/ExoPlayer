@@ -84,7 +84,7 @@ public abstract class DownloadService extends Service {
   private final @StringRes int channelName;
 
   protected DownloadManager downloadManager;
-  private DownloadManagerListener downloadManagerListener;
+  protected DownloadManagerListener downloadManagerListener;
   private int lastStartId;
   private boolean startedInForeground;
   private boolean taskRemoved;
