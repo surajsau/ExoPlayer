@@ -15,6 +15,7 @@
  */
 package com.google.android.exoplayer2.upstream.cache;
 
+import android.util.Log;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.upstream.DataSink;
 import com.google.android.exoplayer2.upstream.DataSpec;
@@ -127,6 +128,10 @@ public final class CacheDataSink implements DataSink {
     try {
       int bytesWritten = 0;
       while (bytesWritten < length) {
+
+        if(length > maxCacheFileSize)
+          Log.e("WRITE_OPS_EX", dataSpec.key + ", byteswritten: " + dataSpecBytesWritten + ", osbyteswritten: " + outputStreamBytesWritten);
+
         if (outputStreamBytesWritten == maxCacheFileSize) {
           closeCurrentOutputStream();
           openNextOutputStream();
@@ -137,6 +142,8 @@ public final class CacheDataSink implements DataSink {
         bytesWritten += bytesToWrite;
         outputStreamBytesWritten += bytesToWrite;
         dataSpecBytesWritten += bytesToWrite;
+
+        Log.e("WRITE_OPS", dataSpec.key + ", byteswritten: " + dataSpecBytesWritten + ", osbyteswritten: " + outputStreamBytesWritten);
       }
     } catch (IOException e) {
       throw new CacheDataSinkException(e);
